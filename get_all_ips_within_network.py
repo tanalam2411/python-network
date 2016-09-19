@@ -31,6 +31,9 @@ nmap -sP 192.168.0.*
 import re
 from subprocess import Popen, PIPE
 
+from enumeration import Commands
+from conf_reader import get_config_option
+
 
 def get_ip_mac_address():
     """
@@ -42,11 +45,11 @@ def get_ip_mac_address():
     """
 
     try:
-        proc = Popen(args=["ifconfig"], stdout=PIPE, stderr=PIPE)
-        std_out, std_err = proc.communicate()
+        process = Popen(args=[Commands.ifconfig], stdout=PIPE, stderr=PIPE)
+        std_out, std_err = process.communicate()
 
-        reg_pattern = r'^(wlan|eth).*\s*Link\s*encap:Ethernet\s*HWaddr\s*(.*)\n*\s*inet\s*addr:(\d+\.+\d+\.+\d+\.+\d+)'
-        ip_mac_list = re.findall(reg_pattern, std_out, re.MULTILINE)
+        regex_pattern = get_config_option('Patterns', 'IpMacRegex')
+        ip_mac_list = re.findall(regex_pattern, std_out, re.MULTILINE)
         if ip_mac_list:
             return True, ip_mac_list
     except OSError as ose:
@@ -64,9 +67,10 @@ def ping_broadcast(broadcast_ip_addr):
     """
 
     try:
-        proc_obj = Popen(args=["ping", "-b", "-c5", broadcast_ip_addr],
-                         stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        std_out, std_err = proc_obj.communicate()
+        args_list = Commands.ping_broadcast
+        args_list.append(broadcast_ip_addr)
+        process = Popen(args=args_list, stdout=PIPE, stderr=PIPE)
+        std_out, std_err = process.communicate()
 
         return std_out, std_err
     except OSError as ose:
@@ -79,7 +83,9 @@ def check_ping_status(ping_response):
     :param ping_response: ping command response.
     :return: ping success status.
     """
-    match = re.search(r'(\d+\s*)received', ping_response, re.MULTILINE)
+
+    regex_pattern = get_config_option('Patterns', 'PingStatusRegex')
+    match = re.search(regex_pattern, ping_response, re.MULTILINE)
     if match:
         if int(match.group(1)) > 0:
             return True
@@ -94,9 +100,10 @@ def call_arp():
     command - arp -a -n
     :return: raw output of arp command having list of ip and mac addresses.
     """
+
     try:
-        proc = Popen(args=['arp', '-a', '-n'], stdout=PIPE, stderr=PIPE)
-        std_out, std_err = proc.communicate()
+        process = Popen(args=Commands.arp, stdout=PIPE, stderr=PIPE)
+        std_out, std_err = process.communicate()
 
         return std_err, std_out
     except OSError as ose:
@@ -113,6 +120,7 @@ def get_all_ip_addresses():
 
     :return: ip and mac table view.
     """
+
     status, local_machine_ip_mac = get_ip_mac_address()
     if not status:
         raise Exception("failed to get local machine's ip address.")
@@ -125,16 +133,16 @@ def get_all_ip_addresses():
 
     if not check_ping_status(ping_out):
         raise Exception("Unsuccessful ping. 0 packets received for broadcast "
-                        "ip address - %s."%broadcast_ip)
+                        "ip address - %s." % broadcast_ip)
 
     arp_err, arp_out = call_arp()
 
     if arp_err:
         raise Exception(arp_err)
 
-    pattern = '\?\s*\((\d+\.+\d+\.+\d+\.+\d+)\)\s*at\s*(.*)\s\['
+    regex_pattern = get_config_option('Patterns', 'ArpRegex')
 
-    match = re.findall(pattern, arp_out, re.MULTILINE)
+    match = re.findall(regex_pattern, arp_out, re.MULTILINE)
 
     print '-'*53
     print "| IP Address".ljust(25), '|', "Hardware Address |".rjust(25)
