@@ -53,7 +53,7 @@ def get_ip_mac_address():
         if ip_mac_list:
             return True, ip_mac_list
     except OSError as ose:
-        # log ose
+        #Todo log ose
         return False, ''
 
 
@@ -74,7 +74,7 @@ def ping_broadcast(broadcast_ip_addr):
 
         return std_out, std_err
     except OSError as ose:
-        # log ose
+        #Todo log ose
         return '', ose
 
 
@@ -107,7 +107,7 @@ def call_arp():
 
         return std_err, std_out
     except OSError as ose:
-        # log ose
+        #Todo log ose
         return '', ose
 
 

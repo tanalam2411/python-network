@@ -3,7 +3,7 @@
 
 
 """
-
+Module to read configurable details from configuration file.
 """
 
 import ConfigParser
@@ -17,8 +17,8 @@ config.read(config_file_name)
 
 def get_config_option(section_name, option_name):
     """
-    :param section_name:
-    :param option_name:
+    :param section_name: section name from config file.
+    :param option_name: option name from config file.
     :return: config option value.
     """
 

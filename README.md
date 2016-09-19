@@ -9,5 +9,4 @@ $ python get_all_ips_within_network.py
 
 
 
-Reference - 
-http://www.aboutdebian.com/network.htm
+Reference - http://www.aboutdebian.com/network.htm
