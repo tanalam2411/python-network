@@ -9,4 +9,4 @@ Enumeration classes.
 class Commands(object):
     arp = ['arp', '-a', '-n']
     ifconfig = "ifconfig"
-    ping_broadcast = ["ping", "-b", "-c5"]
+    ping_broadcast = ["ping", "-b", "-c10"]

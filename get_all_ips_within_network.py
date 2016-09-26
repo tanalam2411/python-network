@@ -30,9 +30,15 @@ nmap -sP 192.168.0.*
 
 import re
 from subprocess import Popen, PIPE
-
 from enumeration import Commands
-from conf_reader import get_config_option
+from utils.logger_utils import get_logger
+from utils.conf_reader import get_config_option
+from utils.custom_exceptions import IPNotFoundError, BroadcastFailureError, \
+    PingFailureError, ArpFailureError
+
+
+
+logging = get_logger()
 
 
 def get_ip_mac_address():
@@ -53,13 +59,13 @@ def get_ip_mac_address():
         if ip_mac_list:
             return True, ip_mac_list
     except OSError as ose:
-        #Todo log ose
+        logging.error(ose)
         return False, ''
 
 
 def ping_broadcast(broadcast_ip_addr):
     """
-    command - ping -b -c5 broadcast_ip_addr
+    command - ping -b -c10 broadcast_ip_addr
 
     :param broadcast_ip_addr: broadcast ip address.
     :return: ping status.
@@ -74,7 +80,7 @@ def ping_broadcast(broadcast_ip_addr):
 
         return std_out, std_err
     except OSError as ose:
-        #Todo log ose
+        logging.error(ose.message)
         return '', ose
 
 
@@ -107,7 +113,7 @@ def call_arp():
 
         return std_err, std_out
     except OSError as ose:
-        #Todo log ose
+        logging.error(ose.message)
         return '', ose
 
 
@@ -121,41 +127,45 @@ def get_all_ip_addresses():
     :return: ip and mac table view.
     """
 
-    status, local_machine_ip_mac = get_ip_mac_address()
-    if not status:
-        raise Exception("failed to get local machine's ip address.")
+    try:
+        status, local_machine_ip_mac = get_ip_mac_address()
+        if not status:
+            raise IPNotFoundError("failed to get local machine's ip address.")
 
-    broadcast_ip = local_machine_ip_mac[0][2].rsplit('.', 1)[0]+'.255'
-    ping_out, ping_err = ping_broadcast(broadcast_ip)
+        broadcast_ip = local_machine_ip_mac[0][2].rsplit('.', 1)[0]+'.255'
+        ping_out, ping_err = ping_broadcast(broadcast_ip)
 
-    if 'WARNING' not in ping_err and ping_err:
-        raise Exception("failed to ping broadcast ip.")
+        if 'WARNING' not in ping_err and ping_err:
+            raise BroadcastFailureError("failed to ping broadcast ip.")
 
-    if not check_ping_status(ping_out):
-        raise Exception("Unsuccessful ping. 0 packets received for broadcast "
-                        "ip address - %s." % broadcast_ip)
+        if not check_ping_status(ping_out):
+            raise PingFailureError("Unsuccessful ping. 0 packets received for "
+                                   "broadcast ip address - %s." % broadcast_ip)
 
-    arp_err, arp_out = call_arp()
+        arp_err, arp_out = call_arp()
 
-    if arp_err:
-        raise Exception(arp_err)
+        if arp_err:
+            raise ArpFailureError(arp_err)
 
-    regex_pattern = get_config_option('Patterns', 'ArpRegex')
+        regex_pattern = get_config_option('Patterns', 'ArpRegex')
 
-    match = re.findall(regex_pattern, arp_out, re.MULTILINE)
+        match = re.findall(regex_pattern, arp_out, re.MULTILINE)
 
-    print '-'*53
-    print "| IP Address".ljust(25), '|', "Hardware Address |".rjust(25)
-    print '-'*53
-
-    print ("| "+local_machine_ip_mac[0][2]+' (Host)').ljust(25), '|', \
-        (local_machine_ip_mac[0][1].strip()+" |").rjust(25)
-
-    for each in match:
         print '-'*53
-        print ("| "+each[0]).ljust(25), '|', (each[1]+" |").rjust(25)
+        print "| IP Address".ljust(25), '|', "Hardware Address |".rjust(25)
+        print '-'*53
 
-    print '-'*53
+        print ("| "+local_machine_ip_mac[0][2]+' (Host)').ljust(25), '|', \
+            (local_machine_ip_mac[0][1].strip()+" |").rjust(25)
+
+        for each in match:
+            print '-'*53
+            print ("| "+each[0]).ljust(25), '|', (each[1]+" |").rjust(25)
+
+        print '-'*53
+
+    except Exception as exc:
+        logging.error(exc.message)
 
 
 if __name__ == '__main__':
